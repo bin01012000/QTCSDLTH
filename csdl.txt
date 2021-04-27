@@ -1,0 +1,102 @@
+--Cau1--
+create view vw_DMVT as
+select VATTU.Mavtu, VATTU.Tenvtu
+from VATTU
+
+--Cau2--
+alter view vw_dondh_tongsldat
+as
+select Sodh, sum(Sldat) as ' Tong so luong dat'
+from CTDONDH
+group by Sodh
+
+--Cau3--
+alter view vw_dondh_tongslnhap
+as
+select Sodh, sum(Slnhap) as ' Tong so luong nhap '
+from CTPNHAP full join PNHAP on CTPNHAP.Sopn = PNHAP.Sopn
+group by Sodh
+
+--Cau4--
+create view vw_dondh_tongsldatnhap
+as
+select CTDONDH.Sodh,TongSLDat=sum(sldat),TongSLNhap=( select sum(slnhap)
+from PNHAP,CTPNHAP
+where CTDONDH.Sodh=PNHAP.Sodh and
+PNHAP.Sopn=CTPNHAP.Sopn )
+from CTDONDH 
+group by CTDONDH.Sodh
+
+--Cau5--
+create view vw_dondh_tongsldatnhap_daydu
+as
+select Sodh as 'Don Hang Day Du'
+from CTDONDH 
+group by Sodh
+ having sum(sldat)= (select sum(slnhap) from PNHAP,CTPNHAP
+where CTDONDH.Sodh=PNHAP.Sodh and PNHAP.Sopn=CTPNHAP.Sopn)
+
+
+
+--cau8--
+
+	if exists(select CTPXUAT.Mavtu, VATTU.Tenvtu from CTPXUAT join VATTU on CTPXUAT.Mavtu = VATTU.Mavtu where CTPXUAT.Slxuat > 4)
+		begin
+			print 'cac vat tu co so luong > 4 la '
+			select CTPXUAT.Mavtu, VATTU.Tenvtu from CTPXUAT join VATTU on CTPXUAT.Mavtu = VATTU.Mavtu where CTPXUAT.Slxuat > 4
+		end
+	else
+		print 'khong tim thay'
+
+
+
+--cau11--
+create proc phieuChuaTungDatHang
+as
+begin
+	if exists(select DONDH.Sodh from DONDH where DONDH.Sodh not in ( select PNHAP.Sodh from PNHAP))
+		begin
+			print'cac so dh chua tung nhap hang'
+			select DONDH.Sodh from DONDH where DONDH.Sodh not in ( select PNHAP.Sodh from PNHAP)
+		end
+	else
+		print'Khong ton tai'
+end
+
+--Cau12--
+create proc matHangChuaBaoGioNhap
+as
+begin
+	if exists(select CTPNHAP.Sopn from CTPNHAP where CTPNHAP.Sopn not in (select PNHAP.Sopn from PNHAP))
+		begin
+			print'cac mat hang chua bao gio nhap hang'
+			select CTPNHAP.Mavtu, VATTU.Tenvtu from CTPNHAP join PNHAP on CTPNHAP.Sopn = PNHAP.Sopn join VATTU on CTPNHAP.Mavtu = VATTU.Mavtu
+			where CTPNHAP.Sopn not in (select PNHAP.Sopn from PNHAP)
+		end
+	else
+		print'Khong ton tai'
+end
+
+
+--cau13--
+alter proc soDonDH @mancc char(4)
+as
+begin
+	if exists(select DONDH.Sodh from DONDH where DONDH.Manhacc = @mancc)
+		begin
+			select DONDH.Sodh from DONDH where DONDH.Manhacc = @mancc
+		end
+	else
+		print 'Khong ton tai ma nha cung cap'
+end
+
+go
+exec soDonDH @mancc = 'C04'
+
+
+--cau14--
+create proc nccNhieuDonHangNhat
+as
+begin
+	select DONDH.Manhacc, NHACC.Tenncc, count(DONDH.Sodh) as ' So luong don dat hang ' from DONDH join NHACC on DONDH.Manhacc = NHACC.Manhacc group by DONDH.Manhacc, NHACC.Tenncc order by count(DONDH.Sodh) desc
+end
