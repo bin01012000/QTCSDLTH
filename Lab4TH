@@ -1,0 +1,153 @@
+--Bai 2b
+go
+create function giaiPT(@a int, @b int)
+returns nvarchar(30)
+as
+begin
+	declare @s nvarchar(30) = ' '
+	if(@a = 0)
+	begin
+		if(@b = 0)
+		begin
+			set @s = 'PT vô số nghiệm'
+		end
+		else
+		begin
+			set @s = 'PT vô nghiệm'
+		end
+	end
+	else
+	begin
+		set @s = cast(-@b/@a as nvarchar(30))
+	end
+	return @s
+end
+
+drop function giaiPT
+
+
+select dbo.giaiPT(0,0)
+
+--2c
+go
+create function tinhTuoi(@ns date)
+returns int
+as
+begin
+	declare @s int
+	set @s = year(GETDATE()) - year(@ns)
+	return @s
+end
+
+select dbo.tinhTuoi('2000-02-13')
+
+--3a
+go
+create function tinhTuoiNhanVien()
+returns table
+as
+return ( select NhanVien.MaNhanVien,NhanVien.TenNhanVien, dbo.tinhTuoi(NhanVien.NgaySinh) as ' Tuổi ' from NhanVien )
+
+select * from dbo.tinhTuoiNhanVien()
+
+--3c
+go
+create function tongTien(@thang int)
+returns table
+as
+return (select NhanVien.MaNhanVien,NhanVien.TenNhanVien, sum(BangLuong.LuongThucLanh) as ' Tổng thực lãnh ' from NhanVien join BangLuong on NhanVien.MaNhanVien = BangLuong.MaNhanVien where month(BangLuong.NgayTinhLuong) = @thang group by NhanVien.MaNhanVien,NhanVien.TenNhanVien)
+
+select * from dbo.tongTien(5)
+
+--5
+go
+alter function Fs_ThucLanh(@manv nvarchar(50))
+returns float
+as
+begin
+	declare @tong float = 0
+	select @tong = (NhanVien.LuongCoBan /24 * BangLuong.SoNgayCong - BangLuong.TienTamUng +BangLuong.TienHoanTra)
+	from NhanVien join BangLuong on NhanVien.MaNhanVien = BangLuong.MaNhanVien
+	where @manv = NhanVien.MaNhanVien
+	return @tong
+end
+
+select dbo.Fs_ThucLanh('NV06')
+
+--6
+go
+create function Fs_TinhLuong(@thang int, @nam int)
+returns @danhsach table (MaNhanVien nvarchar(50), TenNhanVien nvarchar(30), NgaySinh datetime, LuongThucLanh float)
+as
+begin
+	insert into @danhsach 
+	select NhanVien.MaNhanVien, NhanVien.TenNhanVien,NhanVien.NgaySinh,dbo.Fs_ThucLanh(NhanVien.MaNhanVien)
+	from NhanVien join BangLuong on NhanVien.MaNhanVien = BangLuong.MaNhanVien
+	where @thang = month(BangLuong.NgayTinhLuong) and @nam = year(BangLuong.NgayTinhLuong)
+	return 
+end
+
+select * from dbo.Fs_TinhLuong(5,2021)
+
+
+--BTLT 1
+go
+alter function Fs_TongLuongCoBan(@madean nvarchar(50))
+returns float
+as
+begin
+	declare @tong float = 0
+	select @tong = @tong + NhanVien.LuongCoBan
+	from NhanVien join ThamGia on NhanVien.MaNhanVien = ThamGia.MaNhanVien join DeAn on ThamGia.MaDeAn = DeAn.MaDeAn
+	where @madean = DeAn.MaDeAn
+
+	return @tong
+end
+
+select dbo.Fs_TongLuongCoBan('DA01')
+
+
+--BTLT 2
+go
+create function Fm_DSTongLuongDuAn()
+returns @danhsach table (MaDuAn nvarchar(50),TenDuAn nvarchar(50),TongLuongCoBan float)
+as
+begin
+	insert into @danhsach
+	select DeAn.MaDeAn,DeAn.TenDeAn,dbo.Fs_TongLuongCoBan(DeAn.MaDeAn) 
+	from DeAn
+	return
+end
+
+select * from Fm_DSTongLuongDuAn()
+
+
+--BTLT 3
+go
+alter function Fs_TongGio(@manv nvarchar(50))
+returns float
+as
+begin
+	declare @tong float = 0
+	select @tong = @tong + ThamGia.ThoiGian
+	from NhanVien join ThamGia on NhanVien.MaNhanVien = ThamGia.MaNhanVien
+	where NhanVien.MaNhanVien = @manv
+	return @tong
+end
+
+select dbo.Fs_TongGio('NV01')
+
+
+--BTLT 4
+go
+create function Fm_TongGio()
+returns @danhsach table(MaNhanVien nvarchar(50),TenNhanVien nvarchar(50),TenPhongBan nvarchar(50), TongGio float)
+as
+begin
+	insert into @danhsach
+	select NhanVien.MaNhanVien,NhanVien.TenNhanVien,PhongBan.TenPhongBan,dbo.Fs_TongGio(NhanVien.MaNhanVien)
+	from NhanVien join PhongBan on NhanVien.MaPhongBan = PhongBan.MaPhongBan
+	return
+end
+
+select * from Fm_TongGio()
